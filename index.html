@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manhole Safety Training Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: none;
+        }
+        .draggable {
+            cursor: grab;
+            user-select: none;
+        }
+        .drop-zone {
+            transition: background-color 0.3s;
+        }
+        .drop-zone.hover {
+            background-color: rgba(134, 239, 172, 0.5); /* green-300 with opacity */
+        }
+        .feedback-modal {
+            transition: opacity 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <div id="game-container" class="w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl p-4 sm:p-8">
+        <div class="text-center mb-4">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-800">Manhole Safety Training</h1>
+            <p class="text-gray-600 mt-2">Learn the correct procedures for confined space entry.</p>
+            <div class="mt-4 bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-md" role="alert">
+                <p class="font-bold">Score: <span id="score">0</span></p>
+            </div>
+        </div>
+
+        <!-- Game Scene -->
+        <div id="game-scene" class="relative w-full h-96 bg-gray-200 rounded-lg overflow-hidden border-4 border-gray-300 mb-6">
+            <!-- Background -->
+            <div class="absolute inset-0 bg-green-400"></div>
+            <div class="absolute bottom-0 left-0 w-full h-1/3 bg-gray-600"></div> <!-- Road -->
+            
+            <!-- Manhole -->
+            <div id="manhole" class="absolute top-2/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full bg-gray-800 border-4 border-gray-500 flex items-center justify-center">
+                 <div class="w-20 h-20 rounded-full bg-gray-700"></div>
+                 <div id="manhole-opening" class="absolute w-16 h-16 rounded-full bg-black hidden"></div>
+            </div>
+
+            <!-- Worker -->
+            <div id="worker" class="absolute bottom-1/3 right-10 w-20 h-40">
+                 <div id="worker-hardhat" class="absolute -top-4 left-1/2 -translate-x-1/2 w-12 h-8 bg-yellow-400 rounded-t-full hidden"></div>
+                 <div class="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-10 bg-orange-200 rounded-full"></div> <!-- Head -->
+                 <div class="absolute top-10 left-1/2 -translate-x-1/2 w-16 h-20 bg-blue-500 rounded-t-lg"></div> <!-- Body -->
+                 <div id="worker-harness" class="absolute top-10 left-1/2 -translate-x-1/2 w-16 h-20 hidden">
+                    <div class="absolute top-2 w-full h-1 bg-yellow-500"></div>
+                    <div class="absolute top-8 w-full h-1 bg-yellow-500"></div>
+                    <div class="absolute left-0 top-0 h-full w-1 bg-yellow-500"></div>
+                    <div class="absolute right-0 top-0 h-full w-1 bg-yellow-500"></div>
+                 </div>
+            </div>
+
+            <!-- Attendant -->
+            <div id="attendant" class="absolute bottom-1/3 left-10 w-20 h-40 hidden">
+                 <div class="absolute -top-4 left-1/2 -translate-x-1/2 w-12 h-8 bg-yellow-400 rounded-t-full"></div>
+                 <div class="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-10 bg-pink-200 rounded-full"></div>
+                 <div class="absolute top-10 left-1/2 -translate-x-1/2 w-16 h-20 bg-green-500 rounded-t-lg"></div>
+            </div>
+
+            <!-- Safety Cones -->
+            <div id="cone1" class="absolute top-2/3 -translate-y-full left-1/4 w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-b-16 border-b-orange-500 hidden"></div>
+            <div id="cone2" class="absolute top-2/3 -translate-y-full right-1/4 w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-b-16 border-b-orange-500 hidden"></div>
+
+            <!-- Ventilator -->
+            <div id="ventilator" class="absolute bottom-1/3 right-1/4 w-16 h-16 bg-red-600 rounded-md hidden">
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-gray-300"></div>
+                <div id="vent-hose" class="absolute top-1/2 left-0 -translate-y-1/2 w-24 h-4 bg-yellow-300 hidden" style="transform-origin: left center;"></div>
+            </div>
+        </div>
+
+        <!-- Equipment & Tools -->
+        <div id="tools-panel" class="mb-6 p-4 bg-gray-100 rounded-lg hidden">
+            <h3 class="font-bold text-center mb-2">Drag PPE to the Worker</h3>
+            <div class="flex justify-center gap-4">
+                <div id="tool-hardhat" class="draggable p-2 bg-yellow-400 rounded-md shadow-md">Hard Hat</div>
+                <div id="tool-harness" class="draggable p-2 bg-yellow-500 rounded-md shadow-md">Harness</div>
+                <div id="tool-gloves" class="draggable p-2 bg-gray-600 text-white rounded-md shadow-md">Gloves</div>
+                <div id="tool-flipflops" class="draggable p-2 bg-pink-300 rounded-md shadow-md">Flip Flops</div>
+            </div>
+        </div>
+        
+        <div id="gas-detector-tool" class="mb-6 p-4 bg-gray-100 rounded-lg hidden">
+            <h3 class="font-bold text-center mb-2">Drag the Gas Detector to the Manhole</h3>
+            <div class="flex justify-center">
+                <div id="tool-detector" class="draggable p-4 bg-orange-500 rounded-lg shadow-lg text-white font-bold">Gas Detector</div>
+            </div>
+        </div>
+
+
+        <!-- Question and Options -->
+        <div id="question-panel" class="p-6 bg-slate-50 rounded-lg shadow-md">
+            <h2 id="question-text" class="text-xl font-bold text-gray-800 mb-4"></h2>
+            <div id="options-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Options will be dynamically inserted here -->
+            </div>
+        </div>
+
+        <!-- Feedback Modal -->
+        <div id="feedback-modal" class="feedback-modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 opacity-0 pointer-events-none">
+            <div id="feedback-content" class="bg-white rounded-lg shadow-xl p-8 max-w-sm w-full text-center">
+                <h3 id="feedback-title" class="text-2xl font-bold mb-2"></h3>
+                <p id="feedback-text" class="text-gray-700 mb-6"></p>
+                <button id="next-button" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const scoreEl = document.getElementById('score');
+        const questionTextEl = document.getElementById('question-text');
+        const optionsContainerEl = document.getElementById('options-container');
+        const feedbackModalEl = document.getElementById('feedback-modal');
+        const feedbackContentEl = document.getElementById('feedback-content');
+        const feedbackTitleEl = document.getElementById('feedback-title');
+        const feedbackTextEl = document.getElementById('feedback-text');
+        const nextButton = document.getElementById('next-button');
+        const toolsPanel = document.getElementById('tools-panel');
+        const gasDetectorTool = document.getElementById('gas-detector-tool');
+        const manholeEl = document.getElementById('manhole');
+        const workerEl = document.getElementById('worker');
+
+        // Game State
+        let gameState = {
+            score: 0,
+            currentStep: 0,
+            steps: [
+                { // Step 0: Site Assessment
+                    type: 'question',
+                    question: "You've arrived at the worksite. What is your first priority?",
+                    options: [
+                        { text: "Immediately open the manhole to save time.", correct: false, feedback: "Incorrect. Never open a manhole without first securing the area. This puts you and the public at risk." },
+                        { text: "Set up a safe work zone with cones and barriers.", correct: true, feedback: "Correct! Securing the work area is the first step to protect yourself and the public from traffic and other hazards." },
+                        { text: "Go get a coffee to plan the day.", correct: false, feedback: "Incorrect. While planning is important, on-site safety is the immediate priority." }
+                    ],
+                    onCorrect: () => {
+                        document.getElementById('cone1').classList.remove('hidden');
+                        document.getElementById('cone2').classList.remove('hidden');
+                    }
+                },
+                { // Step 1: Open Manhole
+                    type: 'question',
+                    question: "The area is secure. What's next?",
+                    options: [
+                        { text: "Use proper tools to safely open the manhole cover.", correct: true, feedback: "Correct! Using approved manhole cover lifters prevents back injuries and other accidents." },
+                        { text: "Try to pry it open with a screwdriver.", correct: false, feedback: "Incorrect. This is dangerous and can damage equipment or cause injury." }
+                    ],
+                    onCorrect: () => {
+                        manholeEl.querySelector('.bg-gray-700').classList.add('hidden');
+                        document.getElementById('manhole-opening').classList.remove('hidden');
+                    }
+                },
+                { // Step 2: Air Quality Test
+                    type: 'drag-drop',
+                    taskText: 'Time to test the air. Drag the Gas Detector to the manhole.',
+                    toolId: 'tool-detector',
+                    dropZoneId: 'manhole',
+                    onCorrect: () => {
+                        // This is handled by the drop event, then we move to the next question
+                    }
+                },
+                { // Step 3: Ventilate
+                    type: 'question',
+                    question: "The gas detector shows low oxygen and the presence of hazardous gases. What is the required action?",
+                    options: [
+                        { text: "Proceed with entry, but work very quickly.", correct: false, feedback: "Extremely dangerous! Entering a hazardous atmosphere without ventilation can be fatal." },
+                        { text: "Ventilate the space using a forced-air blower.", correct: true, feedback: "Correct! The space must be ventilated until the air quality is within safe limits." },
+                        { text: "Assume the detector is faulty and enter anyway.", correct: false, feedback: "Never ignore a gas detector reading. Your life depends on it." }
+                    ],
+                    onCorrect: () => {
+                        const ventilator = document.getElementById('ventilator');
+                        const ventHose = document.getElementById('vent-hose');
+                        ventilator.classList.remove('hidden');
+                        setTimeout(() => {
+                           ventHose.classList.remove('hidden');
+                           ventHose.style.transform = 'rotate(-45deg) translateX(-20px)';
+                        }, 500);
+                    }
+                },
+                { // Step 4: PPE
+                    type: 'drag-drop-multiple',
+                    taskText: 'The air is now safe. Gear up with the correct Personal Protective Equipment (PPE).',
+                    correctItems: ['tool-hardhat', 'tool-harness'],
+                    allItems: ['tool-hardhat', 'tool-harness', 'tool-gloves', 'tool-flipflops'],
+                    dropZoneId: 'worker',
+                    onCorrect: () => {
+                        // This is handled by the drop event for the last correct item
+                    }
+                },
+                { // Step 5: Entry Permit
+                    type: 'question',
+                    question: "You are fully equipped and all pre-entry checks are complete. What is the final authorization needed?",
+                    options: [
+                        { text: "A verbal 'go-ahead' from your partner.", correct: false, feedback: "Incorrect. Formal documentation is required for safety and legal compliance." },
+                        { text: "Fill out and sign the confined space entry permit.", correct: true, feedback: "Correct! The entry permit is a crucial checklist and formal record that all safety procedures have been followed." },
+                        { text: "Just start climbing down; you've done enough.", correct: false, feedback: "Incorrect. The permit is a non-negotiable final safety check." }
+                    ],
+                    onCorrect: () => {
+                        // No visual change, just the modal confirmation
+                    }
+                },
+                { // Step 6: The Attendant
+                    type: 'question',
+                    question: "Who is the essential person that must remain outside the confined space at all times to monitor the entrant?",
+                    options: [
+                        { text: "The Attendant (or 'Hole Watch').", correct: true, feedback: "Correct! The attendant's only job is to monitor the entrant, maintain communication, and initiate a rescue if needed." },
+                        { text: "The Project Manager, who can check in occasionally.", correct: false, feedback: "Incorrect. The attendant must be present 100% of the time." },
+                        { text: "Anyone who is free can watch for a bit.", correct: false, feedback: "Incorrect. The attendant must be trained and dedicated to the role." }
+                    ],
+                    onCorrect: () => {
+                        document.getElementById('attendant').classList.remove('hidden');
+                    }
+                },
+                 { // Step 7: Game Over
+                    type: 'end',
+                    title: "Training Complete!",
+                    text: "You've successfully followed all the critical safety steps for confined space entry. Remember these procedures on the job to stay safe. Well done!"
+                }
+            ]
+        };
+
+        function updateScore(points) {
+            gameState.score += points;
+            scoreEl.textContent = gameState.score;
+        }
+
+        function showFeedback(isCorrect, feedback) {
+            feedbackTitleEl.textContent = isCorrect ? 'Correct!' : 'Incorrect';
+            feedbackTextEl.textContent = feedback;
+            feedbackContentEl.className = `bg-white rounded-lg shadow-xl p-8 max-w-sm w-full text-center transform scale-100 border-t-8 ${isCorrect ? 'border-green-500' : 'border-red-500'}`;
+            feedbackModalEl.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function hideFeedback() {
+            feedbackModalEl.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function displayQuestion(step) {
+            questionTextEl.textContent = step.question;
+            optionsContainerEl.innerHTML = '';
+            toolsPanel.classList.add('hidden');
+            gasDetectorTool.classList.add('hidden');
+
+            step.options.forEach(option => {
+                const button = document.createElement('button');
+                button.textContent = option.text;
+                button.className = 'p-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md transition-transform transform hover:scale-105';
+                button.onclick = () => {
+                    const isCorrect = option.correct;
+                    if (isCorrect) {
+                        updateScore(10);
+                        if (step.onCorrect) step.onCorrect();
+                    }
+                    showFeedback(isCorrect, option.feedback);
+                };
+                optionsContainerEl.appendChild(button);
+            });
+        }
+        
+        function setupDragAndDrop(step) {
+            questionTextEl.textContent = step.taskText;
+            optionsContainerEl.innerHTML = '';
+            
+            if (step.type === 'drag-drop') {
+                gasDetectorTool.classList.remove('hidden');
+                const draggable = document.getElementById(step.toolId);
+                const dropZone = document.getElementById(step.dropZoneId);
+                
+                makeDraggable(draggable, () => {
+                    // On drop
+                    gasDetectorTool.classList.add('hidden');
+                    updateScore(10);
+                    showFeedback(true, "Great! Testing the atmosphere before entry is a critical life-saving step.");
+                }, dropZone);
+
+            } else if (step.type === 'drag-drop-multiple') {
+                toolsPanel.classList.remove('hidden');
+                const dropZone = document.getElementById(step.dropZoneId);
+                let correctItemsDropped = 0;
+
+                step.allItems.forEach(itemId => {
+                    const item = document.getElementById(itemId);
+                    makeDraggable(item, () => {
+                        // On drop
+                        if (step.correctItems.includes(item.id)) {
+                            item.classList.add('hidden');
+                            correctItemsDropped++;
+                            updateScore(10);
+
+                            // Apply visual feedback
+                            if (item.id === 'tool-hardhat') document.getElementById('worker-hardhat').classList.remove('hidden');
+                            if (item.id === 'tool-harness') document.getElementById('worker-harness').classList.remove('hidden');
+
+                            if (correctItemsDropped === step.correctItems.length) {
+                                toolsPanel.classList.add('hidden');
+                                showFeedback(true, "Excellent! You've selected the essential PPE for this task.");
+                            }
+                        } else {
+                            // Incorrect item
+                            showFeedback(false, "That's not the right PPE. Flip flops are never acceptable on a worksite!");
+                            // Reset position or give other feedback
+                        }
+                    }, dropZone);
+                });
+            }
+        }
+
+        function makeDraggable(element, onDrop, dropZone) {
+            let isDragging = false;
+            let offset = { x: 0, y: 0 };
+
+            const startDrag = (e) => {
+                isDragging = true;
+                element.style.position = 'absolute';
+                element.style.zIndex = 1000;
+                element.classList.add('grabbing');
+
+                const clientX = e.clientX || e.touches[0].clientX;
+                const clientY = e.clientY || e.touches[0].clientY;
+                const rect = element.getBoundingClientRect();
+                offset.x = clientX - rect.left;
+                offset.y = clientY - rect.top;
+
+                document.addEventListener('mousemove', drag);
+                document.addEventListener('touchmove', drag, { passive: false });
+                document.addEventListener('mouseup', endDrag);
+                document.addEventListener('touchend', endDrag);
+            };
+            
+            const drag = (e) => {
+                if (!isDragging) return;
+                e.preventDefault();
+
+                const clientX = e.clientX || e.touches[0].clientX;
+                const clientY = e.clientY || e.touches[0].clientY;
+
+                element.style.left = `${clientX - offset.x}px`;
+                element.style.top = `${clientY - offset.y}px`;
+
+                const dropZoneRect = dropZone.getBoundingClientRect();
+                if (
+                    clientX > dropZoneRect.left &&
+                    clientX < dropZoneRect.right &&
+                    clientY > dropZoneRect.top &&
+                    clientY < dropZoneRect.bottom
+                ) {
+                    dropZone.classList.add('hover');
+                } else {
+                    dropZone.classList.remove('hover');
+                }
+            };
+
+            const endDrag = (e) => {
+                isDragging = false;
+                element.classList.remove('grabbing');
+                dropZone.classList.remove('hover');
+
+                document.removeEventListener('mousemove', drag);
+                document.removeEventListener('touchmove', drag);
+                document.removeEventListener('mouseup', endDrag);
+                document.removeEventListener('touchend', endDrag);
+
+                const clientX = e.clientX || e.changedTouches[0].clientX;
+                const clientY = e.clientY || e.changedTouches[0].clientY;
+
+                const dropZoneRect = dropZone.getBoundingClientRect();
+                if (
+                    clientX > dropZoneRect.left &&
+                    clientX < dropZoneRect.right &&
+                    clientY > dropZoneRect.top &&
+                    clientY < dropZoneRect.bottom
+                ) {
+                    onDrop();
+                } else {
+                    // Reset position if not dropped on target
+                    element.style.position = '';
+                    element.style.left = '';
+                    element.style.top = '';
+                    element.style.zIndex = '';
+                }
+            };
+            
+            element.addEventListener('mousedown', startDrag);
+            element.addEventListener('touchstart', startDrag);
+        }
+
+        function loadStep(stepIndex) {
+            const step = gameState.steps[stepIndex];
+            if (!step) return;
+
+            if (step.type === 'question') {
+                displayQuestion(step);
+            } else if (step.type.startsWith('drag-drop')) {
+                setupDragAndDrop(step);
+            } else if (step.type === 'end') {
+                questionTextEl.textContent = '';
+                optionsContainerEl.innerHTML = '';
+                showFeedback(true, `${step.title} ${step.text}`);
+                nextButton.textContent = 'Restart';
+                nextButton.onclick = () => window.location.reload();
+            }
+        }
+
+        // Event Listener for the Next button in the modal
+        nextButton.addEventListener('click', () => {
+            hideFeedback();
+            // Only advance if the last action was correct
+            const lastStep = gameState.steps[gameState.currentStep];
+            const lastTitle = feedbackTitleEl.textContent;
+
+            if (lastTitle === 'Correct!') {
+                 gameState.currentStep++;
+                 loadStep(gameState.currentStep);
+            }
+        });
+
+        // Initial game start
+        loadStep(gameState.currentStep);
+
+    </script>
+</body>
+</html>
