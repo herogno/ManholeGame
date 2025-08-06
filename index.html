@@ -15,6 +15,9 @@
             cursor: grab;
             user-select: none;
         }
+        .grabbing {
+            cursor: grabbing;
+        }
         .drop-zone {
             transition: background-color 0.3s;
         }
@@ -24,33 +27,36 @@
         .feedback-modal {
             transition: opacity 0.3s ease-in-out;
         }
+        .hidden {
+            display: none !important;
+        }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
 
     <div id="game-container" class="w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl p-4 sm:p-8">
         <div class="text-center mb-4">
-            <h1 class="text-3xl sm:text-4xl font-bold text-gray-800"> Sikkerhetstrening for entring av kum </h1>
-            <p class="text-gray-600 mt-2">Lær korrekte prosedyrer for entring av innesluttede rom. </p>
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-800">Manhole Safety Training</h1>
+            <p class="text-gray-600 mt-2">Learn the correct procedures for confined space entry.</p>
             <div class="mt-4 bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-md" role="alert">
                 <p class="font-bold">Score: <span id="score">0</span></p>
             </div>
         </div>
 
         <!-- Game Scene -->
-        <div id="game-scene" class="relative w-full h-96 bg-gray-200 rounded-lg overflow-y-scroll border-4 border-gray-300 mb-6">
+        <div id="game-scene" class="relative w-full h-96 bg-gray-200 rounded-lg overflow-hidden border-4 border-gray-300 mb-6">
             <!-- Background -->
             <div class="absolute inset-0 bg-green-400"></div>
             <div class="absolute bottom-0 left-0 w-full h-1/3 bg-gray-600"></div> <!-- Road -->
             
             <!-- Manhole -->
-            <div id="manhole" class="absolute top-2/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full bg-gray-800 border-4 border-gray-500 flex items-center justify-center">
+            <div id="manhole" class="drop-zone absolute top-2/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full bg-gray-800 border-4 border-gray-500 flex items-center justify-center">
                  <div class="w-20 h-20 rounded-full bg-gray-700"></div>
                  <div id="manhole-opening" class="absolute w-16 h-16 rounded-full bg-black hidden"></div>
             </div>
 
             <!-- Worker -->
-            <div id="worker" class="absolute bottom-1/3 right-10 w-20 h-40">
+            <div id="worker" class="drop-zone absolute bottom-1/3 right-10 w-20 h-40">
                  <div id="worker-hardhat" class="absolute -top-4 left-1/2 -translate-x-1/2 w-12 h-8 bg-yellow-400 rounded-t-full hidden"></div>
                  <div class="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-10 bg-orange-200 rounded-full"></div> <!-- Head -->
                  <div class="absolute top-10 left-1/2 -translate-x-1/2 w-16 h-20 bg-blue-500 rounded-t-lg"></div> <!-- Body -->
@@ -109,9 +115,9 @@
 
         <!-- Feedback Modal -->
         <div id="feedback-modal" class="feedback-modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 opacity-0 pointer-events-none">
-            <div id="feedback-content" class="bg-white rounded-lg shadow-xl p-8 max-w-sm w-full text-center">
+            <div id="feedback-content" class="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
                 <h3 id="feedback-title" class="text-2xl font-bold mb-2"></h3>
-                <p id="feedback-text" class="text-gray-700 mb-6"></p>
+                <p id="feedback-text" class="text-gray-700 mb-6 text-left"></p>
                 <button id="next-button" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Next</button>
             </div>
         </div>
@@ -167,9 +173,6 @@
                     taskText: 'Time to test the air. Drag the Gas Detector to the manhole.',
                     toolId: 'tool-detector',
                     dropZoneId: 'manhole',
-                    onCorrect: () => {
-                        // This is handled by the drop event, then we move to the next question
-                    }
                 },
                 { // Step 3: Ventilate
                     type: 'question',
@@ -195,9 +198,6 @@
                     correctItems: ['tool-hardhat', 'tool-harness'],
                     allItems: ['tool-hardhat', 'tool-harness', 'tool-gloves', 'tool-flipflops'],
                     dropZoneId: 'worker',
-                    onCorrect: () => {
-                        // This is handled by the drop event for the last correct item
-                    }
                 },
                 { // Step 5: Entry Permit
                     type: 'question',
@@ -207,9 +207,6 @@
                         { text: "Fill out and sign the confined space entry permit.", correct: true, feedback: "Correct! The entry permit is a crucial checklist and formal record that all safety procedures have been followed." },
                         { text: "Just start climbing down; you've done enough.", correct: false, feedback: "Incorrect. The permit is a non-negotiable final safety check." }
                     ],
-                    onCorrect: () => {
-                        // No visual change, just the modal confirmation
-                    }
                 },
                 { // Step 6: The Attendant
                     type: 'question',
@@ -231,15 +228,30 @@
             ]
         };
 
+
         function updateScore(points) {
             gameState.score += points;
             scoreEl.textContent = gameState.score;
         }
 
-        function showFeedback(isCorrect, feedback) {
+        function showFeedback(isCorrect, feedback, isEnd = false) {
             feedbackTitleEl.textContent = isCorrect ? 'Correct!' : 'Incorrect';
-            feedbackTextEl.textContent = feedback;
-            feedbackContentEl.className = `bg-white rounded-lg shadow-xl p-8 max-w-sm w-full text-center transform scale-100 border-t-8 ${isCorrect ? 'border-green-500' : 'border-red-500'}`;
+            feedbackTextEl.innerHTML = feedback;
+            feedbackContentEl.className = `bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center transform scale-100 border-t-8 ${isCorrect ? 'border-green-500' : 'border-red-500'}`;
+            
+            if (isEnd) {
+                nextButton.textContent = 'Restart';
+                nextButton.onclick = resetGame;
+            } else {
+                nextButton.textContent = 'Next';
+                nextButton.onclick = () => {
+                    hideFeedback();
+                    if (isCorrect) {
+                        gameState.currentStep++;
+                        loadStep(gameState.currentStep);
+                    }
+                };
+            }
             feedbackModalEl.classList.remove('opacity-0', 'pointer-events-none');
         }
 
@@ -279,7 +291,8 @@
                 const dropZone = document.getElementById(step.dropZoneId);
                 
                 makeDraggable(draggable, () => {
-                    // On drop
+                    // On successful drop, hide the item and its container panel
+                    draggable.classList.add('hidden');
                     gasDetectorTool.classList.add('hidden');
                     updateScore(10);
                     showFeedback(true, "Great! Testing the atmosphere before entry is a critical life-saving step.");
@@ -293,13 +306,11 @@
                 step.allItems.forEach(itemId => {
                     const item = document.getElementById(itemId);
                     makeDraggable(item, () => {
-                        // On drop
                         if (step.correctItems.includes(item.id)) {
                             item.classList.add('hidden');
                             correctItemsDropped++;
                             updateScore(10);
 
-                            // Apply visual feedback
                             if (item.id === 'tool-hardhat') document.getElementById('worker-hardhat').classList.remove('hidden');
                             if (item.id === 'tool-harness') document.getElementById('worker-harness').classList.remove('hidden');
 
@@ -308,9 +319,7 @@
                                 showFeedback(true, "Excellent! You've selected the essential PPE for this task.");
                             }
                         } else {
-                            // Incorrect item
                             showFeedback(false, "That's not the right PPE. Flip flops are never acceptable on a worksite!");
-                            // Reset position or give other feedback
                         }
                     }, dropZone);
                 });
@@ -365,6 +374,7 @@
             };
 
             const endDrag = (e) => {
+                if (!isDragging) return;
                 isDragging = false;
                 element.classList.remove('grabbing');
                 dropZone.classList.remove('hover');
@@ -378,19 +388,18 @@
                 const clientY = e.clientY || e.changedTouches[0].clientY;
 
                 const dropZoneRect = dropZone.getBoundingClientRect();
-                if (
-                    clientX > dropZoneRect.left &&
-                    clientX < dropZoneRect.right &&
-                    clientY > dropZoneRect.top &&
-                    clientY < dropZoneRect.bottom
-                ) {
+                if (clientX > dropZoneRect.left && clientX < dropZoneRect.right && clientY > dropZoneRect.top && clientY < dropZoneRect.bottom) {
                     onDrop();
+                }
+                
+                element.style.position = '';
+                element.style.left = '';
+                element.style.top = '';
+                element.style.zIndex = '';
+                if (originalNextSibling) {
+                    originalParent.insertBefore(element, originalNextSibling);
                 } else {
-                    // Reset position if not dropped on target
-                    element.style.position = '';
-                    element.style.left = '';
-                    element.style.top = '';
-                    element.style.zIndex = '';
+                    originalParent.appendChild(element);
                 }
             };
             
@@ -402,34 +411,61 @@
             const step = gameState.steps[stepIndex];
             if (!step) return;
 
+            toolsPanel.classList.add('hidden');
+            gasDetectorTool.classList.add('hidden');
+            optionsContainerEl.innerHTML = '';
+            
+            questionTextEl.textContent = step.question || step.taskText || '';
+
             if (step.type === 'question') {
                 displayQuestion(step);
             } else if (step.type.startsWith('drag-drop')) {
                 setupDragAndDrop(step);
             } else if (step.type === 'end') {
-                questionTextEl.textContent = '';
-                optionsContainerEl.innerHTML = '';
-                showFeedback(true, `${step.title} ${step.text}`);
-                nextButton.textContent = 'Restart';
-                nextButton.onclick = () => window.location.reload();
+                showFeedback(true, `${step.title} ${step.text}`, true);
             }
         }
 
-        // Event Listener for the Next button in the modal
+        function resetGame() {
+            hideFeedback();
+            gameState.score = 0;
+            gameState.currentStep = 0;
+            scoreEl.textContent = '0';
+
+            // Reset visual elements
+            document.getElementById('cone1').classList.add('hidden');
+            document.getElementById('cone2').classList.add('hidden');
+            manholeEl.querySelector('.bg-gray-700').classList.remove('hidden');
+            document.getElementById('manhole-opening').classList.add('hidden');
+            document.getElementById('ventilator').classList.add('hidden');
+            document.getElementById('vent-hose').classList.add('hidden');
+            document.getElementById('worker-hardhat').classList.add('hidden');
+            document.getElementById('worker-harness').classList.add('hidden');
+            document.getElementById('attendant').classList.add('hidden');
+
+            // Reset draggable items by removing the 'hidden' class so they are ready for the next round.
+            document.getElementById('tool-detector').classList.remove('hidden');
+            gameState.steps.forEach(step => {
+                if (step.type === 'drag-drop-multiple') {
+                    step.allItems.forEach(id => document.getElementById(id).classList.remove('hidden'));
+                }
+            });
+            
+            loadStep(0);
+        }
+
+        // --- Event Listeners ---
         nextButton.addEventListener('click', () => {
             hideFeedback();
-            // Only advance if the last action was correct
-            const lastStep = gameState.steps[gameState.currentStep];
             const lastTitle = feedbackTitleEl.textContent;
-
-            if (lastTitle === 'Correct!') {
+            if (lastTitle.includes('Correct!')) {
                  gameState.currentStep++;
                  loadStep(gameState.currentStep);
             }
         });
 
         // Initial game start
-        loadStep(gameState.currentStep);
+        resetGame();
 
     </script>
 </body>
