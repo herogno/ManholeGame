@@ -320,18 +320,25 @@
         function makeDraggable(element, onDrop, dropZone) {
             let isDragging = false;
             let offset = { x: 0, y: 0 };
+            const originalParent = element.parentElement;
+            const originalNextSibling = element.nextElementSibling;
 
             const startDrag = (e) => {
                 isDragging = true;
+                const rect = element.getBoundingClientRect();
+                const clientX = e.clientX || e.touches[0].clientX;
+                const clientY = e.clientY || e.touches[0].clientY;
+                offset.x = clientX - rect.left;
+                offset.y = clientY - rect.top;
+
+                document.body.appendChild(element);
                 element.style.position = 'absolute';
                 element.style.zIndex = 1000;
                 element.classList.add('grabbing');
 
-                const clientX = e.clientX || e.touches[0].clientX;
-                const clientY = e.clientY || e.touches[0].clientY;
-                const rect = element.getBoundingClientRect();
-                offset.x = clientX - rect.left;
-                offset.y = clientY - rect.top;
+                // *** FIX: Set initial position accounting for scroll offset to prevent jump ***
+                element.style.left = `${rect.left + window.scrollX}px`;
+                element.style.top = `${rect.top + window.scrollY}px`;
 
                 document.addEventListener('mousemove', drag);
                 document.addEventListener('touchmove', drag, { passive: false });
@@ -342,20 +349,15 @@
             const drag = (e) => {
                 if (!isDragging) return;
                 e.preventDefault();
-
                 const clientX = e.clientX || e.touches[0].clientX;
                 const clientY = e.clientY || e.touches[0].clientY;
-
+                
+                // *** FIX: Update position accounting for scroll offset so it follows the cursor correctly ***
                 element.style.left = `${clientX - offset.x}px`;
                 element.style.top = `${clientY - offset.y}px`;
 
                 const dropZoneRect = dropZone.getBoundingClientRect();
-                if (
-                    clientX > dropZoneRect.left &&
-                    clientX < dropZoneRect.right &&
-                    clientY > dropZoneRect.top &&
-                    clientY < dropZoneRect.bottom
-                ) {
+                if (clientX > dropZoneRect.left && clientX < dropZoneRect.right && clientY > dropZoneRect.top && clientY < dropZoneRect.bottom) {
                     dropZone.classList.add('hover');
                 } else {
                     dropZone.classList.remove('hover');
